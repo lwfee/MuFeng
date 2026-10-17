@@ -1,0 +1,56 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mufeng-gateway
+  profiles:
+    active: local # 激活本地配置
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${MUFENG_NACOS_ADDR:127.0.0.1:8848}
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        # 1. 路由至木风-营销算价服务
+        - id: mufeng-marketing-route
+          uri: lb://mufeng-marketing
+          predicates:
+            - Path=/api/marketing/**
+          filters:
+            - StripPrefix=1
+
+        # 2. 路由至木风-双模库存服务
+        - id: mufeng-inventory-route
+          uri: lb://mufeng-inventory
+          predicates:
+            - Path=/api/inventory/**
+          filters:
+            - StripPrefix=1
+
+        # 3. 路由至木风-交易履约服务
+        - id: mufeng-trade-route
+          uri: lb://mufeng-trade
+          predicates:
+            - Path=/api/trade/**
+          filters:
+            - StripPrefix=1
+
+        # 4. 路由至木风-清结算服务
+        - id: mufeng-settlement-route
+          uri: lb://mufeng-settlement
+          predicates:
+            - Path=/api/settlement/**
+          filters:
+            - StripPrefix=1
+
+  data:
+    redis:
+      host: ${MUFENG_REDIS_HOST:127.0.0.1}
+      port: ${MUFENG_REDIS_PORT:6379}
+      password: ${MUFENG_REDIS_PWD:} # 留空，由 local 提供
+      database: 0
+      timeout: 3000ms

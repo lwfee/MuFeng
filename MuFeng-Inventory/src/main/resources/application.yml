@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: mufeng-inventory
+  profiles:
+    active: local # 激活本地配置
+  threads:
+    virtual:
+      enabled: true
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${MUFENG_NACOS_ADDR:127.0.0.1:8848}
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MUFENG_DB_HOST:127.0.0.1}:${MUFENG_DB_PORT:3306}/mufeng?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${MUFENG_DB_USER:}
+    password: ${MUFENG_DB_PWD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 30
+      connection-timeout: 10000
+
+  data:
+    redis:
+      host: ${MUFENG_REDIS_HOST:127.0.0.1}
+      port: ${MUFENG_REDIS_PORT:6379}
+      password: ${MUFENG_REDIS_PWD:}
+      database: 0
+      timeout: 3000ms
+
+rocketmq:
+  name-server: ${MUFENG_RMQ_ADDR:127.0.0.1:9876}
+  producer:
+    group: ${spring.application.name}-producer-group
+    send-message-timeout: 3000
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
