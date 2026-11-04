@@ -1,0 +1,184 @@
+### ============================================================================
+### 阶段 1：初始化双模库存与秒杀库存划拨预热 (MuFeng-Inventory)
+### ============================================================================
+
+### 1.1 初始化店铺 201 的秒杀商品
+POST http://127.0.0.1:8080/api/inventory/sku/init
+Content-Type: application/json
+
+{
+  "skuId": 1001,
+  "merchantId": 201,
+  "skuName": "木风自营-旗舰机械键盘(秒杀款)",
+  "salePrice": 10000,
+  "availableStock": 100
+}
+
+### 1.2 初始化店铺 201 的普通商品
+POST http://127.0.0.1:8080/api/inventory/sku/init
+Content-Type: application/json
+
+{
+  "skuId": 1002,
+  "merchantId": 201,
+  "skuName": "木风自营-无线鼠标(日常款)",
+  "salePrice": 10000,
+  "availableStock": 100
+}
+
+### 1.3 初始化店铺 202 的普通商品
+POST http://127.0.0.1:8080/api/inventory/sku/init
+Content-Type: application/json
+
+{
+  "skuId": 2001,
+  "merchantId": 202,
+  "skuName": "星枢服饰-极客连帽卫衣(日常款)",
+  "salePrice": 10000,
+  "availableStock": 100
+}
+
+### 1.4 将 SKU 1001 的日常库存划拨 10 件至 Redis
+POST http://127.0.0.1:8080/api/inventory/seckill/allocate?skuId=1001&allocateNum=10
+
+### 1.5 查询 SKU 1001 库存详情
+GET http://127.0.0.1:8080/api/inventory/sku/detail?skuId=1001
+
+
+### ============================================================================
+### 阶段 2：发券、防重领券与 8000 QPS 内存试算分摊预览 (MuFeng-Marketing)
+### ============================================================================
+
+### 2.1 创建优惠券模板
+POST http://127.0.0.1:8080/api/marketing/template/create
+Content-Type: application/json
+
+{
+  "couponName": "全平台跨店满300减10大促津贴",
+  "couponType": 1,
+  "scopeType": 1,
+  "merchantId": 0,
+  "thresholdAmount": 30000,
+  "discountAmount": 1000,
+  "platformSubsidyRatio": 6667,
+  "stackRuleBitmap": 0,
+  "totalStock": 50,
+  "limitPerUser": 1,
+  "validStartTime": "2026-01-01T00:00:00",
+  "validEndTime": "2027-12-31T23:59:59"
+}
+
+### 2.2 买家领取优惠券（已写死真实 templateId）
+POST http://127.0.0.1:8080/api/marketing/coupon/receive?userId=10005&templateId=108048400165896197
+
+### 2.3 购物车实时试算（已写死真实 userCouponId，验证 333/333/334）
+POST http://127.0.0.1:8080/api/marketing/cart/preview
+Content-Type: application/json
+
+{
+  "userId": 10005,
+  "userCouponId": 108048871496613903,
+  "items": [
+    {"skuId": 1001, "merchantId": 201, "skuName": "旗舰机械键盘", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 2},
+    {"skuId": 1002, "merchantId": 201, "skuName": "无线鼠标", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 1},
+    {"skuId": 2001, "merchantId": 202, "skuName": "极客连帽卫衣", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 1}
+  ]
+}
+
+
+### ============================================================================
+### 阶段 3：跨店合并提单、自动拆单与网关防重放检验 (MuFeng-Trade & Gateway)
+### ============================================================================
+### 3.1 正式提单（换个独一无二的 Nonce）
+POST http://127.0.0.1:8080/api/trade/order/create
+Content-Type: application/json
+X-Nonce: nonce-10006-v1
+
+{
+  "userId": 10006,
+  "userCouponId": 99999999,
+  "items": [
+    {"skuId": 1001, "merchantId": 201, "skuName": "旗舰机械键盘", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 2},
+    {"skuId": 1002, "merchantId": 201, "skuName": "无线鼠标", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 1},
+    {"skuId": 2001, "merchantId": 202, "skuName": "极客连帽卫衣", "unitPrice": 10000, "buyQuantity": 1, "deductMode": 1}
+  ]
+}
+
+
+### 3.2 根据父订单号查询详情
+GET http://127.0.0.1:8080/api/trade/order/detail?parentOrderNo=108049348559765509
+
+
+### ============================================================================
+### 阶段 4：支付激活、单品逆向部分退货、发货与确认收货 (MuFeng-Trade)
+### ============================================================================
+
+### 4.1 模拟微信支付成功回调
+POST http://127.0.0.1:8080/api/trade/order/pay-callback?parentOrderNo=108049348559765509&payChannel=1&channelTradeNo=WX202610188888
+
+### 4.2 买家申请单品部分退货
+POST http://127.0.0.1:8080/api/trade/sub-order/refund-item?subOrderNo=108049349964857349&skuId=1002
+
+### 4.3 商家执行发货
+POST http://127.0.0.1:8080/api/trade/sub-order/deliver?subOrderNo=108049349964857349
+
+### 4.4 买家确认收货（自动发送 MQ 触发清结算）
+POST http://127.0.0.1:8080/api/trade/sub-order/confirm?subOrderNo=108049349964857349
+
+
+### ============================================================================
+### 阶段 5：多方补贴清分核验与 T+1 16分表游标对账演练 (MuFeng-Settlement)
+### ============================================================================
+
+### 5.1 查询店铺 201 的清分结算单
+GET http://127.0.0.1:8080/api/settlement/bill/list?merchantId=201
+
+### 5.2 触发 T+1 渠道对账
+POST http://127.0.0.1:8080/api/settlement/reconcile/trigger?reconcileDate=2026-10-18
+Content-Type: application/json
+
+{
+  "108049348559765509": 28000,
+  "9999999999999999": 5000
+}
+
+### 5.3 查询对账差错表
+GET http://127.0.0.1:8080/api/settlement/reconcile/diffs?reconcileDate=2026-10-18
+
+### 5.4 再次查询店铺 201 的结算单
+GET http://127.0.0.1:8080/api/settlement/bill/list?merchantId=201
+
+
+
+### 3.2 查单
+GET http://127.0.0.1:8080/api/trade/order/detail?parentOrderNo=108102714061094918
+
+### 4.1 支付
+POST http://127.0.0.1:8080/api/trade/order/pay-callback?parentOrderNo=108102714061094918&payChannel=1&channelTradeNo=WX202610188888
+
+### 4.2 退货
+POST http://127.0.0.1:8080/api/trade/sub-order/refund-item?subOrderNo=108102714182729734&skuId=1002
+
+### 4.3 发货
+POST http://127.0.0.1:8080/api/trade/sub-order/deliver?subOrderNo=108102714182729734
+
+### 4.4 确认收货（点完等2秒）
+POST http://127.0.0.1:8080/api/trade/sub-order/confirm?subOrderNo=108102714182729734
+
+### 5.1 查结算单
+GET http://127.0.0.1:8080/api/settlement/bill/list?merchantId=201
+
+### 5.2 触发对账
+POST http://127.0.0.1:8080/api/settlement/reconcile/trigger?reconcileDate=2026-10-18
+Content-Type: application/json
+
+{
+  "108102714061094918": 28000,
+  "9999999999999999": 5000
+}
+
+### 5.3 查差错
+GET http://127.0.0.1:8080/api/settlement/reconcile/diffs?reconcileDate=2026-10-18
+
+### 5.4 查冻结结算单
+GET http://127.0.0.1:8080/api/settlement/bill/list?merchantId=201
