@@ -184,6 +184,20 @@
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+                <!-- 新增：Spring Boot Maven 插件，用于支持打包成可执行 JAR 及 mvn spring-boot:run 运行 -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
