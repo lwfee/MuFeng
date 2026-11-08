@@ -19,8 +19,9 @@ services:
     container_name: mufeng-redis
     ports:
       - "6379:6379"
-    # 删掉了 requirepass，保持无密码
-
+    # 确保docker重启后密码依然生效
+    command: redis-server --requirepass 123456  
+    
   nacos:
     image: nacos/nacos-server:v2.3.0
     container_name: mufeng-nacos
