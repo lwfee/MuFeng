@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌌 木风 · 星枢 (MuFeng-StarNexus)
+# 木风 (MuFeng)
 **基于 DDD 领域驱动设计的高并发分布式电商交易履约与清结算对账中台**
 
 [![JDK](https://img.shields.io/badge/JDK-17%2B-orange.svg)](https://openjdk.org/)
@@ -14,7 +14,7 @@
 
 ---
 
-##  一、 项目背景与核心定位
+## 一、 项目背景与核心定位
 
 在大型跨店电商大促场景下，传统 CRUD 电商系统普遍面临以下 **五大工程痛点**：
 1. **高频算价打穿数据库**：大促期间用户频繁在购物车勾选商品试算优惠，海量并发读直接击穿 MySQL。
@@ -23,11 +23,11 @@
 4. **分库分表后的跨分片广播查询**：按 `user_id` 分表后，商家发货、支付回调仅携带 `order_no`，导致全库 16 张表广播扫描。
 5. **T+1 渠道对账内存溢出与日切假阳性误报**：全量拉取订单表导致 OOM，且 `23:59:59` 支付跨天入账触发大量虚假短款告警。
 
-**「木风-星枢（MuFeng-StarNexus）」** 严格采用 **DDD（领域驱动设计）四层架构**，围绕 **“零尾差算价分摊 -> 动静隔离双模库存 -> 基因法 16 分表父子拆单 -> 多方补贴清分与 T+1 游标对账”** 构建了一套完整的生产级资金与交易闭环。
+**「木风（MuFeng）」** 严格采用 **DDD（领域驱动设计）四层架构**，围绕 **“零尾差算价分摊 -> 动静隔离双模库存 -> 基因法 16 分表父子拆单 -> 多方补贴清分与 T+1 游标对账”** 构建了一套完整的生产级资金与交易闭环。
 
 ---
 
-##  二、 系统全景架构与工程模块划分
+## 二、 系统全景架构与工程模块划分
 
 ### 2.1 全链路业务与技术架构图
 
@@ -78,12 +78,12 @@ MuFeng
 ├── MuFeng-Inventory     # [库存域] Port: 8082 | 动静隔离双模库存、秒杀库存划拨/回拨、Caffeine 售罄标记 + Redis Lua 原子预扣
 ├── MuFeng-Trade         # [交易域] Port: 8083 | 跨店父子拆单聚合根、单库16表基因动态路由、有限状态机、逆向部分退货
 ├── MuFeng-Settlement    # [清结算] Port: 8084 | 商家补贴清分与抽佣账单、16分片游标 T+1 对账、日切跨天缓冲池与资损自动冻结
-└── docker               # [容器化] MySQL/Redis/Nacos/RocketMQ 编排配置与 39 张物理表初始化脚本
+└── MuFeng-Console       # [前端] Vue 3 + Vite | 全链路压测演练沙盘与 Trace-Id 监控台
 ```
 
 ---
 
-##  三、 五大核心架构设计详解
+## 三、 五大核心架构设计详解
 
 ### 1. 营销算价中心：Caffeine 内存级试算与“双层最大余数法”零尾差引擎
 * **8,000 QPS 零 DB 查询试算**：优惠券模板加载至 JVM 本地 `Caffeine Cache`，购物车高频勾选试算直接命中内存，支持指定券试算或**自动遍历用户券包推荐立减金额最大的最优券**。
@@ -123,7 +123,7 @@ MuFeng
 
 ---
 
-##  四、 数据库表结构全景（单库 39 张物理表）
+## 四、 数据库表结构全景（单库 39 张物理表）
 
 数据库名：`mufeng`（初始化脚本位于 `docker/sql/init_schema.sql`）：
 
@@ -141,16 +141,16 @@ MuFeng
 
 ---
 
-##  五、 本地快速启动
+## 五、 本地快速启动与全链路沙盘演练
 
 ### 5.1 环境准备与中间件一键启动
 1. **初始化 MySQL 数据库**：在本地 MySQL 8.0（默认密码 `123456`）中执行 `docker/sql/init_schema.sql`，自动创建 `mufeng` 库及 39 张表。
 2. **启动 Redis / Nacos / RocketMQ 容器**：
    ```bash
    cd docker
-   docker compose up -d nacos rmqnamesrv rmqbroker
+   docker compose up -d nacos rmqnamesrv rmqbroker redis
    ```
-3. **启动微服务集群**：在 IDE 中依次运行以下 5 个启动类：
+3. **启动微服务集群**：在 IDEA 或 VS Code 中依次运行以下 5 个启动类：
    * `MarketingApplication` (`8081`)
    * `InventoryApplication` (`8082`)
    * `TradeApplication` (`8083`)
